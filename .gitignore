@@ -165,7 +165,7 @@ cython_debug/
 
 # End of https://www.toptal.com/developers/gitignore/api/python
 
-dataset/*
-!dataset/.gitkeep
+data/*
+!data/.gitkeep
 
 *.pt
