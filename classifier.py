@@ -25,7 +25,7 @@ class LitClassifier(pl.LightningModule):
     def __init__(self, input_size: int, output_size: int) -> None:
         super().__init__()
         self.model = Classifier(input_size, output_size)
-        self.loss_func = torch.nn.CrossEntropyLoss()
+        self.loss_func = torch.nn.CrossEntropyLoss(reduction='mean')
 
     def _calculate_acc(self, y_hat, y):
         y_hat = torch.argmax(y_hat, dim=1)
@@ -59,7 +59,7 @@ class LitClassifier(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-4)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=LR)
         return {
             'optimizer': optimizer,
             'lr_scheduler': {
@@ -69,10 +69,11 @@ class LitClassifier(pl.LightningModule):
                     mode='min',
                     factor=LR_DECAY_FACTOR,
                     patience=LR_DECAY_PATIENCE,
+                    min_lr=LR_MIN,
                 ),
                 'monitor':
                 'validation/loss',
                 'frequency':
                 1,
-            }
+            },
         }
