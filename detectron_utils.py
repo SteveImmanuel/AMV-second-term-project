@@ -8,10 +8,15 @@ from detectron2.utils.visualizer import Visualizer
 from detectron2.config import get_cfg
 from detectron2.engine.defaults import DefaultPredictor
 
-def setup_dataset(name:str, annotation_path:str, images_path:str):
+
+def setup_dataset(name: str, annotation_path: str, images_path: str):
     register_coco_instances(name, {}, annotation_path, images_path)
 
-def get_model_config(config_file:str='./configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml', threshold:float=.7):
+
+def get_model_config(
+    config_file: str = './configs/COCO-Keypoints/keypoint_rcnn_R_50_FPN_3x.yaml',
+    threshold: float = .7,
+):
     cfg = get_cfg()
     cfg.merge_from_file(config_file)
     model_weight = '/'.join(os.path.normpath(config_file).split(os.sep)[-2:])
@@ -19,10 +24,11 @@ def get_model_config(config_file:str='./configs/COCO-Keypoints/keypoint_rcnn_R_5
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = threshold
     return cfg
 
-def quick_predict_img(model:DefaultPredictor, img_path:str) -> torch.tensor:
+
+def quick_predict_img(model: DefaultPredictor, img_path: str) -> torch.tensor:
     img = cv2.imread(img_path)
     return model(img)['instances'].pred_keypoints
-    
+
 
 if __name__ == '__main__':
     setup_dataset('semaphore_keypoint_train', 'data/train/annotation.json', 'data/train')
@@ -40,7 +46,7 @@ if __name__ == '__main__':
     # img = cv2.imread(d["file_name"])
     # visualizer = Visualizer(img[:, :, ::-1], metadata=dataset_metadata, scale=0.5)
     # out = visualizer.draw_dataset_dict(d)
-    
+
     # cv2.namedWindow('temp', cv2.WINDOW_KEEPRATIO)
     # cv2.imshow('temp', out.get_image()[:, :, ::-1])
     # cv2.resizeWindow('temp', 800, 800)
@@ -56,6 +62,5 @@ if __name__ == '__main__':
     # cv2.imshow('temp2', out.get_image()[:, :, ::-1])
     # cv2.resizeWindow('temp2', 800, 800)
 
-
-    # cv2.waitKey(0) 
-    # cv2.destroyAllWindows() 
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()

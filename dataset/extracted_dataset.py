@@ -20,7 +20,13 @@ class KeypointExtractedDataset(torch.utils.data.Dataset):
             self.logger.info(f'No cache found for {self.dataset_name}, extracting keypoints')
             self.model_extractor_config = model_extractor_config
             self._extract_keypoints()
-            
+
+        self._create_label_idx_mapping()
+    
+    def _create_label_idx_mapping(self):
+        labels = self.dataframe['label'].unique()
+        self.label_idx_mapping = {label:idx for idx, label in enumerate(labels)}
+
     def _extract_keypoints(self):
         dataset = DatasetCatalog.get(self.dataset_name)
         if self.model_extractor_config:
@@ -53,4 +59,5 @@ class KeypointExtractedDataset(torch.utils.data.Dataset):
         return len(self.dataframe)
 
     def __getitem__(self, idx:int):
-        raise NotImplementedError()
+        item = list(self.dataframe.iloc[idx])
+        return torch.FloatTensor(item[:-1]), torch.LongTensor([self.label_idx_mapping[item[-1]]]).squeeze()
