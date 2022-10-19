@@ -6,8 +6,12 @@ from detectron_utils import *
 from typing import Optional
 from tqdm import tqdm
 
+
 class KeypointExtractedDataset(torch.utils.data.Dataset):
-    def __init__(self, dataset_name:str, cache_path:Optional[str]=None, model_extractor_config:Optional[str]=None):
+    def __init__(self,
+                 dataset_name: str,
+                 cache_path: Optional[str] = None,
+                 model_extractor_config: Optional[str] = None):
         self.dataset_name = dataset_name
         self.split = dataset_name.split('_')[-1]
         self.logger = logging.getLogger(__name__)
@@ -22,10 +26,10 @@ class KeypointExtractedDataset(torch.utils.data.Dataset):
             self._extract_keypoints()
 
         self._create_label_idx_mapping()
-    
+
     def _create_label_idx_mapping(self):
         labels = self.dataframe['label'].unique()
-        self.label_idx_mapping = {label:idx for idx, label in enumerate(labels)}
+        self.label_idx_mapping = {label: idx for idx, label in enumerate(labels)}
 
     def _extract_keypoints(self):
         dataset = DatasetCatalog.get(self.dataset_name)
@@ -46,7 +50,7 @@ class KeypointExtractedDataset(torch.utils.data.Dataset):
             if len(keypoints) > 1:
                 self.logger.warn(f'Multiple keypoints found for {dataset[i]["file_name"]}, using first one')
             keypoints = keypoints[0].flatten()
-            
+
             data['label'].append(label)
             for j, key in enumerate(columns[:-1]):
                 data[key].append(keypoints[j].cpu().item())
@@ -58,6 +62,54 @@ class KeypointExtractedDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.dataframe)
 
-    def __getitem__(self, idx:int):
+    def __getitem__(self, idx: int):
+        item = list(self.dataframe.iloc[idx])
+        return torch.FloatTensor(item[:-1]), torch.LongTensor([self.label_idx_mapping[item[-1]]]).squeeze()
+
+
+class KeypointExtractedDatasetV2(KeypointExtractedDataset):
+    def __init__(self,
+                 dataset_name: str,
+                 cache_path: Optional[str] = None,
+                 model_extractor_config: Optional[str] = None):
+        super().__init__(dataset_name, cache_path, model_extractor_config)
+
+    def _extract_keypoints(self):
+        dataset = DatasetCatalog.get(self.dataset_name)
+        if self.model_extractor_config:
+            keypoint_cfg = get_model_config(self.model_extractor_config)
+        else:
+            keypoint_cfg = get_model_config()
+        keypoint_model = DefaultPredictor(keypoint_cfg)
+
+        columns = [[f'x{i}', f'y{i}'] for i in range(17)]
+        columns = [*[item for sublist in columns for item in sublist], 'label']
+        data = {key: [] for key in columns}
+        for i in tqdm(range(len(dataset))):
+            label = os.path.splitext(os.path.split(dataset[i]['file_name'])[-1])[0]
+            keypoints = quick_predict_img(keypoint_model, dataset[i]['file_name'])
+
+            assert len(keypoints) >= 1, f'No keypoints found for {dataset[i]["file_name"]}'
+            if len(keypoints) > 1:
+                self.logger.warn(f'Multiple keypoints found for {dataset[i]["file_name"]}, using first one')
+            keypoints = keypoints[0].flatten()
+
+            data['label'].append(label)
+            for j in range(17):
+                x = keypoints[3 * j].cpu().item() / dataset[i]['width']
+                y = keypoints[3 * j + 1].cpu().item() / dataset[i]['height']
+                data[f'x{j}'].append(x)
+                data[f'y{j}'].append(y)
+
+        for i in range(17):
+            if i not in [5, 6, 7, 8, 9, 10]:
+                del data[f'x{i}']
+                del data[f'y{i}']
+
+        self.dataframe = pd.DataFrame(data=data)
+        self.logger.info(f'Saving extracted keypoints to {self.cache_path}')
+        self.dataframe.to_csv(self.cache_path, index=False)
+
+    def __getitem__(self, idx: int):
         item = list(self.dataframe.iloc[idx])
         return torch.FloatTensor(item[:-1]), torch.LongTensor([self.label_idx_mapping[item[-1]]]).squeeze()
