@@ -37,30 +37,36 @@ if __name__ == '__main__':
 
     dataset_dicts = DatasetCatalog.get('semaphore_keypoint_train')
     dataset_metadata = MetadataCatalog.get("semaphore_keypoint_train")
-    d = dataset_dicts[12]
-    cfg = get_model_config()
-    model = DefaultPredictor(cfg)
-    pred = quick_predict_img(model, d["file_name"])
-    print(pred.shape)
-
-    # img = cv2.imread(d["file_name"])
-    # visualizer = Visualizer(img[:, :, ::-1], metadata=dataset_metadata, scale=0.5)
-    # out = visualizer.draw_dataset_dict(d)
-
-    # cv2.namedWindow('temp', cv2.WINDOW_KEEPRATIO)
-    # cv2.imshow('temp', out.get_image()[:, :, ::-1])
-    # cv2.resizeWindow('temp', 800, 800)
-
+    d = dataset_dicts[5]
     # cfg = get_model_config()
     # model = DefaultPredictor(cfg)
-    # pred = model(img)
+    # pred = quick_predict_img(model, d["file_name"])
+    # print(pred.shape)
 
-    # visualizer = Visualizer(img[:, :, ::-1], metadata=dataset_metadata, scale=0.5)
-    # out = visualizer.draw_instance_predictions(pred['instances'].to('cpu'))
+    img = cv2.imread(d["file_name"])
+    visualizer = Visualizer(img[:, :, ::-1], metadata=dataset_metadata, scale=0.5)
+    out = visualizer.draw_dataset_dict(d)
 
-    # cv2.namedWindow('temp2', cv2.WINDOW_KEEPRATIO)
-    # cv2.imshow('temp2', out.get_image()[:, :, ::-1])
-    # cv2.resizeWindow('temp2', 800, 800)
+    cv2.namedWindow('temp', cv2.WINDOW_KEEPRATIO)
+    cv2.imshow('temp', out.get_image()[:, :, ::-1])
+    cv2.resizeWindow('temp', 800, 800)
 
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    cfg = get_model_config()
+    model = DefaultPredictor(cfg)
+    pred = model(img)
+
+    visualizer = Visualizer(img[:, :, ::-1], metadata=dataset_metadata, scale=0.5)
+    out = visualizer.draw_instance_predictions(pred['instances'].to('cpu'))
+    print(pred['instances'].pred_keypoints)
+    print(d['width'], d['height'])
+    print(torch.tensor(d['annotations'][0]['keypoints']).reshape(1, 17, 3))
+
+    a = torch.tensor(d['annotations'][0]['keypoints']).reshape(1, 17, 3)
+    b = pred['instances'].pred_keypoints.cpu()
+    print(a - b)
+    cv2.namedWindow('temp2', cv2.WINDOW_KEEPRATIO)
+    cv2.imshow('temp2', out.get_image()[:, :, ::-1])
+    cv2.resizeWindow('temp2', 800, 800)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
