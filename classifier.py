@@ -24,73 +24,37 @@ class Classifier(torch.nn.Module):
 
 
 class ClassifierV2(torch.nn.Module):
-    def __init__(self, input_size: int, output_size: int, conv_channel: int = 32):
+    def __init__(self, input_size: int, output_size: int, conv_channel: int = 4):
         super().__init__()
         self.conv = torch.nn.Conv1d(2, conv_channel, 1, 1)
         self.head = torch.nn.Sequential(
-            torch.nn.Linear((input_size // 2) * conv_channel, output_size),
-            # torch.nn.ReLU(),
-            # torch.nn.BatchNorm1d(64),
-            # torch.nn.Dropout(0.2),
-            # torch.nn.Linear(64, output_size),
+            torch.nn.Linear((input_size // 2) * conv_channel, 32),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(32),
+            torch.nn.Linear(32, output_size),
         )
-        self.embedding = torch.nn.Embedding(input_size // 2, conv_channel)
-        self.self_att = torch.nn.MultiheadAttention(conv_channel, 1)
-        self.layer_norm = torch.nn.LayerNorm(conv_channel)
-        self.summarization_token = self._get_weight((1, 1, conv_channel))
-
-    def _get_weight(self, size: Tuple):
-        weight = torch.empty(size, requires_grad=True)
-        weight = torch.nn.init.xavier_normal_(weight)
-        return torch.nn.Parameter(weight, requires_grad=True)
+        self.transformer_enc = torch.nn.TransformerEncoder(
+            torch.nn.TransformerEncoderLayer(conv_channel, 1, conv_channel * 4, batch_first=True),
+            8,
+        )
 
     def forward(self, x: torch.tensor):
         batch, n_features = x.shape
 
         x = x.view(batch, 2, n_features // 2)
         conv_out = self.conv(x).permute(0, 2, 1)
-        pos_embed = self.embedding(torch.arange(n_features // 2).cuda()).expand(batch, -1, -1)
-        seq = conv_out + pos_embed
-        att_out, _ = self.self_att(seq, seq, seq)  # (batch, n_features // 2, conv_channel)
-        out = self.layer_norm(seq + att_out)
+
+        out = self.transformer_enc(conv_out)  # (batch, n_features // 2, conv_channel)
         out = out.flatten(1)  # (batch, n_features // 2 * conv_channel)
+
         final_out = self.head(out)
         return final_out
 
 
-class ClassifierV3(torch.nn.Module):
-    def __init__(self, input_size: int, output_size: int, conv_channel: int = 10):
-        super().__init__()
-        self.conv = torch.nn.Sequential(
-            torch.nn.Conv1d(2, conv_channel, 1, 1),
-            torch.nn.ReLU(),
-            torch.nn.Conv1d(conv_channel, conv_channel, 1, 1),
-            torch.nn.ReLU(),
-        )
-        self.head = torch.nn.Sequential(
-            torch.nn.Linear((input_size // 2) * conv_channel, 128),
-            torch.nn.ReLU(),
-            torch.nn.BatchNorm1d(128),
-            torch.nn.Dropout(0.2),
-            torch.nn.Linear(128, 64),
-            torch.nn.ReLU(),
-            torch.nn.BatchNorm1d(64),
-            torch.nn.Linear(64, output_size),
-        )
-
-    def forward(self, x: torch.tensor):
-        batch, n_features = x.shape
-
-        x = x.view(batch, 2, n_features // 2)
-        conv_out = self.conv(x).flatten(1)
-        final_out = self.head(conv_out)
-        return final_out
-
-
 class LitClassifier(pl.LightningModule):
-    def __init__(self, input_size: int, output_size: int) -> None:
+    def __init__(self, input_size: int, output_size: int, model_factory) -> None:
         super().__init__()
-        self.model = Classifier(input_size, output_size)
+        self.model = model_factory(input_size, output_size)
         self.loss_func = torch.nn.CrossEntropyLoss(reduction='mean')
 
     def _calculate_acc(self, y_hat, y):
@@ -98,6 +62,7 @@ class LitClassifier(pl.LightningModule):
         return torch.sum(y_hat == y).item() / len(y)
 
     def training_step(self, batch: torch.tensor, batch_idx: int):
+        self.model.train()
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss_func(y_hat, y)
@@ -107,6 +72,7 @@ class LitClassifier(pl.LightningModule):
         return loss
 
     def validation_step(self, batch: torch.tensor, batch_idx: int):
+        self.model.eval()
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss_func(y_hat, y)
@@ -116,6 +82,7 @@ class LitClassifier(pl.LightningModule):
         return loss
 
     def test_step(self, batch: torch.tensor, batch_idx: int):
+        self.model.eval()
         x, y = batch
         y_hat = self.model(x)
         loss = self.loss_func(y_hat, y)
@@ -123,6 +90,10 @@ class LitClassifier(pl.LightningModule):
         self.log('test/loss', loss)
         self.log('test/acc', acc)
         return loss
+
+    def predict_step(self, batch, batch_idx: int, dataloader_idx: int = 0):
+        x, y = batch
+        return self.model(x), y
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=LR)
@@ -143,3 +114,9 @@ class LitClassifier(pl.LightningModule):
                 1,
             },
         }
+
+
+if __name__ == '__main__':
+    model = ClassifierV2(6 * 2, 28).cuda()
+    rand_tensor = torch.rand(5, 6 * 2).cuda()
+    model(rand_tensor)
