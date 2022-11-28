@@ -1,5 +1,4 @@
 import os
-from typing import Tuple
 import torch
 import pytorch_lightning as pl
 from constant import *
@@ -15,9 +14,6 @@ class LitClassifier(pl.LightningModule):
         else:
             self.model = model_factory(n_class, False)
         self.loss_func = torch.nn.KLDivLoss(log_target=False)
-
-    def _calculate_loss(self, gt, pred):
-        return self.loss_func(pred, gt)
 
     def _calculate_acc(self, y_hat, y):
         y_hat = torch.argmax(y_hat, dim=1)
@@ -89,6 +85,7 @@ class LitClassifier(pl.LightningModule):
         return loss
 
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = 0):
+        self.model.eval()
         x, y = batch
         return self.model(*x), y
 
@@ -107,6 +104,79 @@ class LitClassifier(pl.LightningModule):
                 ),
                 'monitor':
                 'validation/acc',
+                'frequency':
+                1,
+            },
+        }
+
+
+class LitRegressor(pl.LightningModule):
+    def __init__(self, model_factory, n_class: int) -> None:
+        super().__init__()
+        self.model = model_factory(n_class)
+        self.loss_func = torch.nn.MSELoss()
+
+    def training_step(self, batch: torch.tensor, batch_idx: int):
+        self.model.train()
+        x, y = batch
+        y_hat = self.model(*x)
+        loss = self.loss_func(y_hat, y)
+        self.log('train/batch_loss', loss)
+        return {'loss': loss, 'pred': y_hat, 'target': y}
+
+    def validation_step(self, batch: torch.tensor, batch_idx: int):
+        self.model.eval()
+        x, y = batch
+        with torch.no_grad():
+            y_hat = self.model(*x)
+        loss = self.loss_func(y_hat, y)
+        self.log('validation/batch_loss', loss)
+        return {'loss': loss, 'pred': y_hat, 'target': y}
+
+    def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
+        total_loss = 0
+        for output in outputs:
+            total_loss += output['loss']
+
+        self.log('train/loss', total_loss / len(outputs), prog_bar=True)
+        return super().training_epoch_end(outputs)
+
+    def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]) -> None:
+        total_loss = 0
+        for output in outputs:
+            total_loss += output['loss']
+
+        self.log('validation/loss', total_loss / len(outputs), prog_bar=True)
+        return super().validation_epoch_end(outputs)
+
+    def test_step(self, batch: torch.tensor, batch_idx: int):
+        self.model.eval()
+        x, y = batch
+        y_hat = self.model(*x)
+        loss = self.loss_func(y_hat, y)
+        self.log('test/batch_loss', loss)
+        return loss
+
+    def predict_step(self, batch, batch_idx: int, dataloader_idx: int = 0):
+        self.model.eval()
+        x, y = batch
+        return x, self.model(*x), y
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=LR)
+        return {
+            'optimizer': optimizer,
+            'lr_scheduler': {
+                'scheduler':
+                torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer,
+                    mode='min',
+                    factor=LR_DECAY_FACTOR,
+                    patience=LR_DECAY_PATIENCE,
+                    min_lr=LR_MIN,
+                ),
+                'monitor':
+                'validation/loss',
                 'frequency':
                 1,
             },

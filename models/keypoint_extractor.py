@@ -4,6 +4,7 @@ import mediapipe as mp
 import utils.detectron as DetectronUtils
 import utils.mediapipe as MediapipeUtils
 from detectron2.engine.defaults import DefaultPredictor
+from torchvision.models import ResNet50_Weights, resnet50
 
 
 class BaseKeypointExtractor(torch.nn.Module):
@@ -43,6 +44,27 @@ class MediapipeKeypointExtractor(BaseKeypointExtractor):
 
     def get_total_keypoints(self):
         return 1434
+
+
+class CustomKeypointExtractor(BaseKeypointExtractor):
+    def __init__(self, total_coordinates) -> None:
+        super().__init__()
+        self.total_coordinates = total_coordinates
+
+        self.channel_expander = torch.nn.Conv2d(1, 3, kernel_size=1)
+        weights = ResNet50_Weights.IMAGENET1K_V2
+        self.model = resnet50(weights=weights)
+        self.model.fc = torch.nn.Linear(2048, total_coordinates)
+
+    def extract_keypoints(self, image):
+        raise NotImplementedError()
+
+    def get_total_keypoints(self):
+        raise NotImplementedError()
+
+    def forward(self, img):
+        img = self.channel_expander(img)
+        return self.model(img)
 
 
 if __name__ == '__main__':
