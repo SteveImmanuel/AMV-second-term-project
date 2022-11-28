@@ -170,3 +170,7 @@ data/*
 
 *.pt
 runs
+
+*.csv
+temp
+*.pb
