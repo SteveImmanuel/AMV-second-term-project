@@ -5,6 +5,9 @@ import utils.detectron as DetectronUtils
 import utils.mediapipe as MediapipeUtils
 from detectron2.engine.defaults import DefaultPredictor
 from torchvision.models import ResNet50_Weights, resnet50
+from torchvision import transforms
+from PIL import Image
+from collections import OrderedDict
 
 
 class BaseKeypointExtractor(torch.nn.Module):
@@ -51,19 +54,36 @@ class CustomKeypointExtractor(BaseKeypointExtractor):
         super().__init__()
         self.total_coordinates = total_coordinates
 
-        self.channel_expander = torch.nn.Conv2d(1, 3, kernel_size=1)
         weights = ResNet50_Weights.IMAGENET1K_V2
         self.model = resnet50(weights=weights)
         self.model.fc = torch.nn.Linear(2048, total_coordinates)
+        self.transform = transforms.Compose([
+            transforms.Resize(48),
+            transforms.ToTensor(),
+        ])
+
+    def load_checkpoint(self, path: str):
+        checkpoint = torch.load(path)
+        new_state_dict = OrderedDict()
+        for k, v in checkpoint['state_dict'].items():
+            if 'model.' in k:
+                name = k[6:]
+                new_state_dict[name] = v
+        self.load_state_dict(new_state_dict)
 
     def extract_keypoints(self, image):
-        raise NotImplementedError()
+        if image.shape[-1] == 3:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        image = Image.fromarray(image)
+        image = self.transform(image)
+        return self.forward(image.unsqueeze(0)).squeeze(0).detach().numpy()
 
     def get_total_keypoints(self):
-        raise NotImplementedError()
+        raise 30
 
     def forward(self, img):
-        img = self.channel_expander(img)
+        batch, channel, height, width = img.shape
+        img = img.expand([batch, 3, height, width])
         return self.model(img)
 
 
