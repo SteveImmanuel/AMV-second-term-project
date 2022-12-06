@@ -18,9 +18,9 @@ train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE,
 val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS)
 classifier = LitClassifier(CNNClassifier, train_dataset.total_class)
 
-logger = TensorBoardLogger(save_dir=os.getcwd(), name='runs')
-early_stop_cb = EarlyStopping(monitor='validation/acc', patience=100, verbose=True, mode='max')
-checkpoint_cb = ModelCheckpoint(monitor='validation/acc', save_top_k=1, mode='max')
+logger = TensorBoardLogger(save_dir=os.getcwd(), name='runs/cnn')
+early_stop_cb = EarlyStopping(monitor='validation/loss', patience=10, verbose=True, mode='min')
+checkpoint_cb = ModelCheckpoint(monitor='validation/loss', save_top_k=1, mode='min')
 trainer = pl.Trainer(
     logger=logger,
     max_epochs=MAX_EPOCHS,
