@@ -70,9 +70,9 @@ class KeypointDataset(torch.utils.data.Dataset):
 
         if self.split != 'test':
             label = torch.FloatTensor(item[0:30].to_numpy(dtype=np.float32)) / 96
-            return (img, ), label
+            return img, label
         else:
-            return (img, ), torch.empty(0)
+            return img, torch.empty(0)
 
     @property
     def total_coordinates(self):

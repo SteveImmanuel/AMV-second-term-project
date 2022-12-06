@@ -4,15 +4,14 @@ import pandas as pd
 import os
 from torchvision import transforms
 from PIL import Image
-from torchvision.models import ResNet50_Weights
 
 
 class FER2013PlusDataset(torch.utils.data.Dataset):
-    def __init__(self, dataset_dir: str, preprocess: transforms.Compose = None) -> None:
+    def __init__(self, dataset_dir: str, preprocess: transforms.Compose = None, split: str = 'train') -> None:
         super().__init__()
         self.dataset_dir = dataset_dir
         if preprocess is None:
-            self.preprocess = ResNet50_Weights.IMAGENET1K_V2.transforms()
+            self.preprocess = transforms.Compose([transforms.ToTensor()])
         else:
             self.preprocess = preprocess
 
@@ -44,13 +43,13 @@ class FER2013PlusDataset(torch.utils.data.Dataset):
         item = self.data.iloc[idx]
         img_path = os.path.join(self.dataset_dir, item[0])
 
-        img = Image.open(img_path).convert('RGB')
+        img = Image.open(img_path)
         img = self.preprocess(img)
         label = torch.FloatTensor(item[2:].to_numpy(dtype=np.float32))
         label = label / len(label)
-        return (img, ), label
+        return img, label
 
 
 if __name__ == '__main__':
     fer_train = FER2013PlusDataset('./data/fer2013plus/FER2013Train')
-    print(fer_train[0][1])
+    print(fer_train[0][1].shape)
