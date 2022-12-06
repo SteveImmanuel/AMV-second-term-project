@@ -6,12 +6,10 @@ import matplotlib.pyplot as plt
 import seaborn as sn
 import pandas as pd
 from torchmetrics import F1Score, Recall, Precision, ConfusionMatrix
-from models.lightning import LitClassifier
-from models.classifier import CNNClassifier
-from dataset.extracted_dataset import KeypointExtractedDataset
+from models.lightning import LitJoint
+from models.classifier import JointClassifierV1, JointClassifierV2
 from dataset.image_dataset import FER2013PlusDataset
 from constant import *
-from collections import Counter
 
 logging.basicConfig(level=logging.INFO)
 
@@ -27,10 +25,14 @@ trainer = pl.Trainer(
     devices=1,
 )
 
-classifier = LitClassifier.load_from_checkpoint(
-    'runs/version_4/checkpoints/epoch=17-step=8046.ckpt',
-    model_factory=CNNClassifier,
+classifier = LitJoint.load_from_checkpoint(
+    'runs/jointv2/lambda_cnn=1.0/version_8/checkpoints/epoch=10-step=2464.ckpt',
+    model_factory=JointClassifierV2,
     n_class=test_dataset.total_class,
+    total_keypoints=15,
+    keypoint_extractor_ckpt='runs/regressor/version_6/checkpoints/epoch=19-step=2000.ckpt',
+    freeze_extractor=False,
+    lambda_cnn=1.0,
 )
 classifier.eval()
 # a = trainer.predict(classifier, test_loader)
