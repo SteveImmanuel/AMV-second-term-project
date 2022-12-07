@@ -7,7 +7,7 @@ from PIL import Image
 
 
 class FER2013PlusDataset(torch.utils.data.Dataset):
-    def __init__(self, dataset_dir: str, preprocess: transforms.Compose = None, split: str = 'train') -> None:
+    def __init__(self, dataset_dir: str, preprocess: transforms.Compose = None) -> None:
         super().__init__()
         self.dataset_dir = dataset_dir
         if preprocess is None:
