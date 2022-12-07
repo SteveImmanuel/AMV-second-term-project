@@ -31,18 +31,22 @@ class DetectronKeypointExtractor(BaseKeypointExtractor):
 
 
 class MediapipeKeypointExtractor(BaseKeypointExtractor):
-    def __init__(self) -> None:
+    def __init__(self, min_confidence=0.5) -> None:
         super().__init__()
-        self.model = MediapipeUtils.get_model()
+        self.model = MediapipeUtils.get_model(min_confidence)
 
     def extract_keypoints(self, image):
         results = self.model.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-        keypoints = []
+        keypoints_x = []
+        keypoints_y = []
+        keypoints_z = []
         if results.multi_face_landmarks:
             face_landmarks = results.multi_face_landmarks[0].landmark
             for landmark in face_landmarks:
-                keypoints += [landmark.x, landmark.y, landmark.z]
-            return keypoints
+                keypoints_x.append(landmark.x)
+                keypoints_y.append(landmark.y)
+                keypoints_z.append(landmark.z)
+            return keypoints_x, keypoints_y, keypoints_z
         return False
 
     def get_total_keypoints(self):

@@ -190,13 +190,12 @@ class LitJoint(pl.LightningModule):
         model_factory,
         n_class: int,
         total_keypoints: int,
-        keypoint_extractor_ckpt: str,
         freeze_cnn: bool = False,
-        lambda_cnn: float = 0.8,
     ) -> None:
         super().__init__()
-        self.model = model_factory(n_class, total_keypoints, keypoint_extractor_ckpt, freeze_cnn, lambda_cnn)
+        self.model = model_factory(n_class, total_keypoints, freeze_cnn)
         self.loss_func = torch.nn.KLDivLoss(log_target=False)
+        # self.loss_func = torch.nn.CrossEntropyLoss()
 
     def _calculate_acc(self, y_hat, y):
         y_hat = torch.argmax(y_hat, dim=1)
@@ -210,8 +209,8 @@ class LitJoint(pl.LightningModule):
 
     def training_step(self, batch: torch.tensor, batch_idx: int):
         self.model.train()
-        x, y = batch
-        y_hat = self.model(x)
+        x1, x2, y = batch
+        y_hat = self.model(x1, x2)
         loss = self.loss_func(y_hat, y)
         acc = self._calculate_acc(y_hat, y)
         self.log('train/batch_loss', loss)
@@ -220,9 +219,9 @@ class LitJoint(pl.LightningModule):
 
     def validation_step(self, batch: torch.tensor, batch_idx: int):
         self.model.eval()
-        x, y = batch
+        x1, x2, y = batch
         with torch.no_grad():
-            y_hat = self.model(x)
+            y_hat = self.model(x1, x2)
         loss = self.loss_func(y_hat, y)
         acc = self._calculate_acc(y_hat, y)
         self.log('validation/batch_loss', loss)
@@ -259,8 +258,8 @@ class LitJoint(pl.LightningModule):
 
     def test_step(self, batch: torch.tensor, batch_idx: int):
         self.model.eval()
-        x, y = batch
-        y_hat = self.model(x)
+        x1, x2, y = batch
+        y_hat = self.model(x1, x2)
         loss = self.loss_func(y_hat, y)
         acc = self._calculate_acc(y_hat, y)
         self.log('test/batch_loss', loss)
@@ -269,8 +268,8 @@ class LitJoint(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx: int, dataloader_idx: int = 0):
         self.model.eval()
-        x, y = batch
-        return self.model(x), y
+        x1, x2, y = batch
+        return self.model(x1, x2), y
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=LR)
