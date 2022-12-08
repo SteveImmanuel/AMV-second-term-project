@@ -1,4 +1,4 @@
-# Semaphore Flag Classification
+# Facial Expression Recognition
 This repo is for the term project of Advanced Machine Vision 2022.
 
 ## Installation
