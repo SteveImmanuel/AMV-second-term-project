@@ -5,6 +5,7 @@ import logging
 import os
 from typing import Optional
 from tqdm import tqdm
+from torchvision import transforms
 from models.keypoint_extractor import *
 
 
@@ -74,18 +75,11 @@ class JointDataset(torch.utils.data.Dataset):
 
             img = cv2.imread(img_path)
             keypoints = self.model_extractor.extract_keypoints(img)
-            
+
             data['image'].append(item[0])
             data['label'].append(label)
             if keypoints:
                 x, y, z = keypoints
-                x = np.array(x)
-                y = np.array(y)
-                z = np.array(z)
-
-                x = (x - np.min(x)) / (np.max(x) - np.min(x))
-                y = (y - np.min(y)) / (np.max(y) - np.min(y))
-                z = (z - np.min(z)) / (np.max(z) - np.min(z))
 
                 x = x.tolist()
                 y = y.tolist()
@@ -124,7 +118,7 @@ class JointDataset(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-    fer2013keypoints = JointDataset('data/fer2013plus/FER2013Valid')
-    fer2013keypoints = JointDataset('data/fer2013plus/FER2013Train')
+    # fer2013keypoints = JointDataset('data/fer2013plus/FER2013Valid')
+    # fer2013keypoints = JointDataset('data/fer2013plus/FER2013Train')
     fer2013keypoints = JointDataset('data/fer2013plus/FER2013Test')
-    # print(fer2013keypoints[0][1].shape)
+    print(fer2013keypoints[0][0][0].shape)

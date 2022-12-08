@@ -1,5 +1,6 @@
 import torch
 import cv2
+import numpy as np
 import mediapipe as mp
 import utils.detectron as DetectronUtils
 import utils.mediapipe as MediapipeUtils
@@ -36,18 +37,34 @@ class MediapipeKeypointExtractor(BaseKeypointExtractor):
         self.model = MediapipeUtils.get_model(min_confidence)
 
     def extract_keypoints(self, image):
+        landmark = self.get_landmark(image)
+        if landmark:
+            return self.get_normalized_keypoints(landmark)
+        return False
+
+    def get_landmark(self, image):
         results = self.model.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        if results.multi_face_landmarks:
+            return results.multi_face_landmarks[0]
+        return False
+
+    def get_normalized_keypoints(self, landmark):
         keypoints_x = []
         keypoints_y = []
         keypoints_z = []
-        if results.multi_face_landmarks:
-            face_landmarks = results.multi_face_landmarks[0].landmark
-            for landmark in face_landmarks:
-                keypoints_x.append(landmark.x)
-                keypoints_y.append(landmark.y)
-                keypoints_z.append(landmark.z)
-            return keypoints_x, keypoints_y, keypoints_z
-        return False
+        for l in landmark.landmark:
+            keypoints_x.append(l.x)
+            keypoints_y.append(l.y)
+            keypoints_z.append(l.z)
+
+        keypoints_x = np.array(keypoints_x)
+        keypoints_y = np.array(keypoints_y)
+        keypoints_z = np.array(keypoints_z)
+
+        keypoints_x = (keypoints_x - np.min(keypoints_x)) / (np.max(keypoints_x) - np.min(keypoints_x))
+        keypoints_y = (keypoints_y - np.min(keypoints_y)) / (np.max(keypoints_y) - np.min(keypoints_y))
+        keypoints_z = (keypoints_z - np.min(keypoints_z)) / (np.max(keypoints_z) - np.min(keypoints_z))
+        return keypoints_x, keypoints_y, keypoints_z
 
     def get_total_keypoints(self):
         return 1434
