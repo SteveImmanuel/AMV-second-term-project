@@ -32,7 +32,7 @@ elif args.model_type == 'keypoint-mediapipe':
     val_dataset = JointDataset('data/fer2013plus/FER2013Valid')
     model = KeypointClassifierMediapipe(train_dataset.total_class, 478)
     lighting_module = LitClassifier(model)
-    log_dir = 'runs/keypoint'
+    log_dir = 'runs/keypoint-mediapipe'
 elif args.model_type == 'joint':
     train_dataset = JointDataset('data/fer2013plus/FER2013Train')
     val_dataset = JointDataset('data/fer2013plus/FER2013Valid')
@@ -44,7 +44,7 @@ elif args.model_type == 'joint-mediapipe':
     val_dataset = JointDataset('data/fer2013plus/FER2013Valid')
     model = JointClassifierMediapipe(train_dataset.total_class, 478, False)
     lighting_module = LitClassifier(model)
-    log_dir = 'runs/joint'
+    log_dir = 'runs/joint-mediapipe'
 elif args.model_type == 'regressor':
     train_dataset = KeypointDataset('./data/keypoints/training.csv', split='train')
     val_dataset = KeypointDataset('./data/keypoints/training.csv', split='validation')
