@@ -25,10 +25,17 @@ class CNNClassifier(torch.nn.Module):
 
 
 class KeypointClassifier(torch.nn.Module):
-    def __init__(self, input_size: int, n_class: int):
+    def __init__(
+        self,
+        n_class: int,
+        total_keypoints: int,
+        keypoint_extractor_ckpt: str,
+    ):
         super().__init__()
+        self.keypoint_extractor = CustomKeypointExtractor(total_keypoints * 2)
+        self.keypoint_extractor.load_checkpoint(keypoint_extractor_ckpt)
         self.model = torch.nn.Sequential(
-            torch.nn.Linear(input_size, 512),
+            torch.nn.Linear(total_keypoints * 2, 512),
             torch.nn.ReLU(),
             torch.nn.BatchNorm1d(512),
             torch.nn.Dropout(0.2),
@@ -44,22 +51,51 @@ class KeypointClassifier(torch.nn.Module):
         )
         self.log_softmax = torch.nn.LogSoftmax(dim=1)
 
-    def forward(self, x):
-        out = self.model(x)
+    def forward(self, img):
+        with torch.no_grad():
+            keypoints = self.keypoint_extractor(img)
+        out = self.model(keypoints)
         return self.log_softmax(out)
 
 
-class JointClassifierV1(torch.nn.Module):
+class KeypointClassifierMediapipe(torch.nn.Module):
+    def __init__(
+        self,
+        n_class: int,
+        total_keypoints: int,
+    ):
+        super().__init__()
+        self.model = torch.nn.Sequential(
+            torch.nn.Linear(total_keypoints * 3, 512),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(512),
+            torch.nn.Dropout(0.2),
+            torch.nn.Linear(512, 256),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(256),
+            torch.nn.Dropout(0.2),
+            torch.nn.Linear(256, 128),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(128),
+            torch.nn.Dropout(0.2),
+            torch.nn.Linear(128, n_class),
+        )
+        self.log_softmax = torch.nn.LogSoftmax(dim=1)
+
+    def forward(self, img, keypoints):
+        out = self.model(keypoints)
+        return self.log_softmax(out)
+
+
+class JointClassifier(torch.nn.Module):
     def __init__(
         self,
         n_class: int,
         total_keypoints: int,
         keypoint_extractor_ckpt: str,
         freeze_cnn: bool = False,
-        lambda_cnn: float = 0.8,
     ) -> None:
         super().__init__()
-        self.lambda_cnn = lambda_cnn
 
         self.keypoint_extractor = CustomKeypointExtractor(total_keypoints * 2)
         self.keypoint_extractor.load_checkpoint(keypoint_extractor_ckpt)
@@ -68,17 +104,20 @@ class JointClassifierV1(torch.nn.Module):
         self.keypoint_extractor.eval()
 
         self.cnn_model = CNNClassifier(n_class, freeze_cnn)
-        self.keypoint_classifier = KeypointClassifier(total_keypoints * 2, n_class)
+        self.cnn_model.model.fc = torch.nn.Identity()
+        self.cnn_model.log_softmax = torch.nn.Identity()
+        self.head = torch.nn.Linear(2048 + 2 * total_keypoints, n_class)
+        self.log_softmax = torch.nn.LogSoftmax(dim=1)
 
-    def forward(self, img):
+    def forward(self, img, keypoints):
         with torch.no_grad():
             keypoints = self.keypoint_extractor(img)
         cnn_out = self.cnn_model(img)
-        keypoint_out = self.keypoint_classifier(keypoints)
-        return cnn_out * self.lambda_cnn + keypoint_out * (1 - self.lambda_cnn)
+        out = torch.cat([cnn_out, keypoints], dim=1)
+        return self.log_softmax(self.head(out))
 
 
-class JointClassifierV2(torch.nn.Module):
+class JointClassifierMediapipe(torch.nn.Module):
     def __init__(
         self,
         n_class: int,
@@ -104,7 +143,6 @@ class JointClassifierV2(torch.nn.Module):
             torch.nn.Dropout(0.2),
             torch.nn.Linear(128, n_class),
         )
-        # self.head = torch.nn.Linear(2048 + 2 * total_keypoints, n_class)
         self.log_softmax = torch.nn.LogSoftmax(dim=1)
 
     def forward(self, img, keypoints):
