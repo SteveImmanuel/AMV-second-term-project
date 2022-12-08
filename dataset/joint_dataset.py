@@ -33,7 +33,7 @@ class JointDataset(torch.utils.data.Dataset):
         else:
             self.logger.info(f'No cache found for {dataset_path}, extracting keypoints')
             if not model_extractor:
-                self.model_extractor = MediapipeKeypointExtractor()
+                self.model_extractor = MediapipeKeypointExtractor(.2)
             else:
                 self.model_extractor = model_extractor
             self._extract_keypoints()
@@ -74,9 +74,10 @@ class JointDataset(torch.utils.data.Dataset):
 
             img = cv2.imread(img_path)
             keypoints = self.model_extractor.extract_keypoints(img)
+            
+            data['image'].append(item[0])
+            data['label'].append(label)
             if keypoints:
-                data['image'].append(item[0])
-                data['label'].append(label)
                 x, y, z = keypoints
                 x = np.array(x)
                 y = np.array(y)
@@ -95,7 +96,11 @@ class JointDataset(torch.utils.data.Dataset):
                     data[f'y{i}'].append(y[i])
                     data[f'z{i}'].append(z[i])
             else:
-                self.logger.warning(f'Keypoints not found for image: {img_path}, skipping it')
+                self.logger.warning(f'Keypoints not found for image: {img_path}, defaulting to zero')
+                for i in range(0, n_features // 3):
+                    data[f'x{i}'].append(0)
+                    data[f'y{i}'].append(0)
+                    data[f'z{i}'].append(0)
                 total_missing += 1
             total += 1
         self.dataframe = pd.DataFrame(data=data)
@@ -115,7 +120,7 @@ class JointDataset(torch.utils.data.Dataset):
         features = torch.tensor(item[1:-1], dtype=torch.float32)
         label = list(map(float, item[-1].split(',')))
         label = torch.tensor(label, dtype=torch.float32) / 10.0
-        return img, features, label
+        return (img, features), label
 
 
 if __name__ == '__main__':

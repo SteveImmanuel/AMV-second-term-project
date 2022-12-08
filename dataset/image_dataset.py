@@ -6,7 +6,7 @@ from torchvision import transforms
 from PIL import Image
 
 
-class FER2013PlusDataset(torch.utils.data.Dataset):
+class ImageDataset(torch.utils.data.Dataset):
     def __init__(self, dataset_dir: str, preprocess: transforms.Compose = None) -> None:
         super().__init__()
         self.dataset_dir = dataset_dir
@@ -47,9 +47,9 @@ class FER2013PlusDataset(torch.utils.data.Dataset):
         img = self.preprocess(img)
         label = torch.FloatTensor(item[2:].to_numpy(dtype=np.float32))
         label = label / len(label)
-        return img, label
+        return (img, ), label
 
 
 if __name__ == '__main__':
-    fer_train = FER2013PlusDataset('./data/fer2013plus/FER2013Train')
+    fer_train = ImageDataset('./data/fer2013plus/FER2013Train')
     print(fer_train[0][1].shape)

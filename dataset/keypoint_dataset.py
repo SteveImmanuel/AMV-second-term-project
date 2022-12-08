@@ -70,9 +70,9 @@ class KeypointDataset(torch.utils.data.Dataset):
 
         if self.split != 'test':
             label = torch.FloatTensor(item[0:30].to_numpy(dtype=np.float32)) / 96
-            return img, label
+            return (img, ), label
         else:
-            return img, torch.empty(0)
+            return (img, ), torch.empty(0)
 
     @property
     def total_coordinates(self):
@@ -80,7 +80,7 @@ class KeypointDataset(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
-    dataset = KeypointDataset('./data/keypoints/test.csv')
+    dataset = KeypointDataset('./data/keypoints/test.csv', split='test')
     # import matplotlib.pyplot as plt
     # plt.imshow(dataset[0][0].permute(1, 2, 0), cmap='gray')
     # plt.show()
@@ -94,6 +94,7 @@ if __name__ == '__main__':
     x, y = next(iterator)
     x, y = next(iterator)
     x, y = next(iterator)
+    print(x)
     print(model(*x))
 
     # model.fc = torch.nn.Linear(2048, 30)
