@@ -14,3 +14,10 @@ def parse_arg():
     )
     result = parser.parse_args()
     return result
+
+
+def parse_inference_arg():
+    parser = argparse.ArgumentParser(description='Train Model')
+    parser.add_argument('--model-path', help='Load pretrained model', required=True)
+    result = parser.parse_args()
+    return result
