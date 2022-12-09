@@ -75,6 +75,7 @@ model = lighting_module.model
 model.cuda()
 model.eval()
 keypoint_extractor = MediapipeKeypointExtractor()
+is_recording = False
 
 cv2.namedWindow('Facial Expression Detection', cv2.WND_PROP_FULLSCREEN)
 cv2.setWindowProperty('Facial Expression Detection', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FREERATIO)
@@ -113,7 +114,19 @@ while cap.isOpened():
                         False)
             cv2.rectangle(window, start_point, end_point, (0, 0, 0), -1)
         cv2.imshow('Facial Expression Detection', window)
+        if is_recording:
+            writer.write(window)
 
-    if cv2.waitKey(5) & 0xFF == 27:
+    keypress = cv2.waitKey(5) & 0xFF
+    if keypress == 27:
         break
+    elif keypress == ord('r') and not is_recording:
+        is_recording = True
+        writer = cv2.VideoWriter('rec.mp4', cv2.VideoWriter_fourcc(*'mp4v'), fps=23, frameSize=(1600, 480))
+        print('Recording started')
+    elif keypress == ord('r') and is_recording:
+        is_recording = False
+        writer.release()
+        print('Recording stopped, file saved to rec.mp4')
+
 cap.release()
